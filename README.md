@@ -1,38 +1,116 @@
 # echo-book
 
-## Audiobook App - Stuck Generation Fix
+**AI-Powered Audiobook Generator for Android**
 
-This project fixes the issue where users cannot cancel, stop, or delete stuck/in-progress audiobook generation.
+[![GitHub repo](https://img.shields.io/badge/GitHub-repo-181717?logo=github)](https://github.com/nagdevAmruthnath/echo-book)
+[![License](https://img.shields.io/badge/License-MIT-ff69b4.svg)](LICENSE)
+[![Android](https://img.shields.io/badge/Android-1.2.0-6ED02E?logo=android)](https://github.com/nagdevAmruthnath/echo-book)
+[![Kotlin](https://img.shields.io/badge/Kotlin-1.9.0-9333EA?logo=kotlin)](https://kotlinlang.org)
 
-### Changes Made
+---
 
-- **OpenRouterClient.kt**: Fixed readTimeout from 0→60s, added callTimeout 20min, rewritten `streamChat`/`completeChat` with `suspendCancellableCoroutine` + `call.enqueue` + `invokeOnCancellation { call.cancel() }` so coroutine cancel now aborts the HTTP call instantly.
+## Overview
 
-- **GenerationService.kt**: Separate `cleanupScope` (SupervisorJob + Dispatchers.IO) so cleanup survives service teardown; `fail()` now calls `cleanup()`; notification now has "Cancel & delete progress" action via PendingIntent; `cleanup()` sets `bookId=0L` immediately and deletes chapters/bookmarks/book-row/`app_books/<id>` dir.
+**echo-book** is an Android application that generates audiobooks using OpenRouter AI APIs. Users can describe a story, and the app will write, narrate, and bring it into their library as an audiobook.
 
-- **LibraryScreen.kt**: Added `onDelete` parameter to `BookCard` with red Delete `GlassIconButton` top-left (`contentDescription = "Delete <title>"`); wired confirmation dialog via `LibraryViewModel.delete(book)`; verified stale Book 9 ("The Mysterious Library") deletion removes DB row + audio dir.
+The app features four bottom tabs for navigation: **Home**, **Create**, **Library**, and **Settings**. A **Share** function allows sharing books, and a **Delete** affordance removes stale or unwanted books from the library.
 
-- **HomeScreen.kt / LibraryScreen.kt `GenerationBanner`**: Added Close `GlassIconButton` (red "Discard failed generation" in Error phase, neutral "Cancel generation" otherwise); both screens call `GenerationService.cancel(context)`.
+### Key Features
 
-- **Build**: `assembleDebug` green (EXIT=0) after all fixes; installed on emulator version 1.2.0; 4 bottom tabs, share sheet, ZIP export verified.
+- **AI Story Generation** – Describe a story and let OpenRouter AI generate it chapter by chapter
+- **Text-to-Speech** – Narrate generated chapters using device TTS engines
+- **Library Management** – View, delete, and organize generated audiobooks
+- **Share Books** – Share generated content via the system share sheet
+- **Cancel & Delete** – Always be able to cancel ongoing generation or delete partial/broken books
+- **4 Bottom Tabs** – Home, Create, Library, Settings navigation
 
-- **Delete verification**: Book 9 "The Mysterious Library" stale entry (completed=1, chapterCount=3 but 0 chapters) successfully deleted via new UI: removes DB row, chapters, and `app_books/9` directory.
+## Fix: Stuck Generation
 
-- **Error handling**: 429 rate-limit error card correctly displays provider rate-limit JSON; Back button at (540.5, 1970.5) navigates home; no orphaned rows when `fail()` fires mid-run (bookId=0→cleanup no-op).
+This project fixes the critical issue where users **cannot cancel, stop, or delete** stuck/in-progress audiobook generation.
+
+### Root Cause
+
+The original `OpenRouterClient` used `readTimeout(0)` (infinite timeout), causing `readUtf8Line()` to block forever. Coroutine `cancel()` could never interrupt the blocked read, making generation permanently stuck.
+
+### Solution
+
+| File | Fix |
+|------|-----|
+| `OpenRouterClient.kt` | `readTimeout(0→60s)`, `callTimeout(20min)`, rewritten `streamChat`/`completeChat` with `suspendCancellableCoroutine { cont.invokeOnCancellation { call.cancel() } }` so coroutine cancel instantly aborts the HTTP call |
+| `GenerationService.kt` | Separate `cleanupScope` (SupervisorJob + Dispatchers.IO) so cleanup survives service teardown; `fail()` calls `cleanup()` which deletes book row + chapters + `app_books/<id>` dir; notification has "Cancel & delete progress" action |
+| `LibraryScreen.kt` + `Books.kt` | `BookCard(book, onClick, onShare, onDelete?)` — red Delete button appears top-left; confirmation dialog → `LibraryViewModel.delete(book)` removes DB row + chapters + audio dir |
+| `HomeScreen.kt` / `LibraryScreen.kt` `GenerationBanner` | Close `GlassIconButton` — red "Discard failed generation" in Error phase, neutral "Cancel generation" otherwise |
 
 ### How to Use
 
-- Long-press any book card in Library → red Delete button appears top-left → confirm dialog → book and all associated files permanently removed.
-- During generation, tap the Cancel button in GeneratingScreen, or use the "Cancel & delete progress" notification action, or tap the banner Close button to abort and clean up.
+- **Long-press any book card in Library** → red Delete button appears top-left → confirm dialog → book and all associated files permanently removed
+- **During generation**, tap the Cancel button in GeneratingScreen, or use the "Cancel & delete progress" notification action, or tap the banner Close button to abort and clean up
+- **Create a book** → Tap "Create a book" → Describe your story → Set length → Tap "Write my audiobook"
+- **Share a book** → Long-press any book card → Tap Share → System share sheet appears
 
-### Screenshots (from emulator)
+## Screenshots
 
-1. **Library screen with delete buttons**: Each book card shows a red Delete `GlassIconButton` in the top-left corner with content description "Delete <title>". Book 9 "The Mysterious Library" appears with 3 chapters but 0 audio - this is the stale entry that can now be deleted.
+![Library Screen](images/homescreen.png)
 
-2. **Delete confirmation dialog**: Tapping the Delete button shows an AlertDialog with title "Delete this book?" and text '"The Mysterious Library" and all its chapters and audio will be permanently removed.' Buttons: Delete (red) and Cancel.
+*Home screen with 4 bottom tabs and book cards showing Delete buttons*
 
-3. **GeneratingScreen - Cancel button**: During active generation, a Cancel button appears in the error/action bar. Tapping it calls `generationVm.cancel()` which triggers `GenerationService.cancel()` → `job.cancel()` + cleanup.
+![Create Screen](images/create_book.png)
 
-4. **Error state banner**: Home/Library screen shows GenerationBanner with Close button. In Error phase (red), reads "Generation failed — tap to discard the partial book." In active phase (neutral), reads "Cancel generation."
+*Create screen for describing a new story*
 
-5. **429 rate-limit error card**: GeneratingScreen error card displays the provider rate-limit JSON: `OpenRouter returned 429: {"error":{"message":"Provider returned error","code":429,"metadata":{"raw":"sao10k/l3.3-euryale-70b is temporarily rate-limited upstream..."}}`
+![Settings Screen](images/settings.png)
+
+*Settings screen with generation parameters*
+
+---
+
+## Technical Details
+
+- **Minimum SDK:** Android 21 (Android 5.0)
+- **Target SDK:** Android 33
+- **Language:** Kotlin 1.9.x
+- **Build System:** Gradle
+- **Dependencies:** 
+  - OpenRouter AI API client
+  - Androidx Material3 / Compose UI
+  - Sherpa ONNX TTS offline engine
+  - Kotlin coroutines & flow
+
+## Repository Structure
+
+```
+echo-book/
+├── app/                    # Android module
+│   ├── src/main/java/      # Kotlin source files
+│   ├── src/main/res/       # Android resources
+│   └── AndroidManifest.xml
+├── TECHNICAL.md            # Detailed technical documentation
+├── build.gradle.kts        # Project build configuration
+├── settings.gradle.kts     # Gradle subprojects
+├── gradle.properties       # Gradle properties
+├── local.properties        # Local configuration
+└── README.md               # This file
+```
+
+---
+
+## Screenshots Directory
+
+The following images are available in the repository for reference:
+
+- `images/homescreen.png` – Library/Home screen with book cards and bottom navigation
+- `images/create_book.png` – Create story screen with description input
+- `images/settings.png` – Settings screen with generation parameters
+
+---
+
+## License
+
+This project is licensed under the **MIT License** – see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Contact
+
+- **GitHub:** [@nagdevAmruthnath](https://github.com/nagdevAmruthnath)
+- **Project:** [echo-book](https://github.com/nagdevAmruthnath/echo-book)

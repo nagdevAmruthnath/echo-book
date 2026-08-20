@@ -110,6 +110,18 @@ This project is licensed under the **MIT License** – see the [LICENSE](LICENSE
 
 ---
 
+## Download APK
+
+**Release v1.2.0** is available for download:
+
+[![Download APK](https://img.shields.io/badge/Download-APK-6ED02E?logo=android)](https://github.com/nagdevAmruthnath/echo-book/releases/download/v1.2.0/EchoBooks-v1.2.0-release.apk)
+
+*Android 5.0+ • Kotlin 1.9 • Generated with OpenRouter AI • Cancel & Delete enabled*
+
+---
+
+---
+
 ## Contact
 
 - **GitHub:** [@nagdevAmruthnath](https://github.com/nagdevAmruthnath)

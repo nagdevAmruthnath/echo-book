@@ -114,8 +114,12 @@ fun GeneratingScreen(
                 } else if (s.phase == GenerationState.Phase.Error) {
                     GlassProgressBar(0f, fill = ErrorRed)
                 } else {
-                    val frac = if (s.totalChapters > 0) s.narrated.toFloat() / s.totalChapters else 0f
-                    GlassProgressBar(frac, fill = Cyan)
+                    val frac = if (s.totalChapters > 0 && s.narratingSegmentTotal > 0) {
+                        (s.narrated + s.narratingSegment.toFloat() / s.narratingSegmentTotal) / s.totalChapters
+                    } else if (s.totalChapters > 0) {
+                        s.narrated.toFloat() / s.totalChapters
+                    } else 0f
+                    GlassProgressBar(frac.coerceIn(0f, 1f), fill = Cyan)
                 }
             }
 

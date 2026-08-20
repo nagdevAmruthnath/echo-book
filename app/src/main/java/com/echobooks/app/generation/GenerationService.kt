@@ -142,12 +142,22 @@ class GenerationService : Service() {
                     for ((i, text) in channel) {
                         GenerationState.update { it.copy(
                             active = true, phase = GenerationState.Phase.Narrating,
+                            narratingSegment = 0, narratingSegmentTotal = 0,
                             detail = "Narrating chapter ${i + 1} of $total…"
                         ) }
                         updateNotif("Narrating chapter ${i + 1} of $total…", i, total)
                         val ch = outline.chapters[i]
                         val res = retry("narrate chapter ${i + 1}") {
-                            app.tts.synthesizeToFiles(text, dir, "ch${i + 1}")
+                            app.tts.synthesizeToFiles(text, dir, "ch${i + 1}") { seg, segTotal ->
+                                maybeThrottled {
+                                    GenerationState.update { st -> st.copy(
+                                        active = true, phase = GenerationState.Phase.Narrating,
+                                        narratingSegment = seg, narratingSegmentTotal = segTotal,
+                                        detail = "Narrating chapter ${i + 1} of $total — segment $seg of $segTotal"
+                                    ) }
+                                    updateNotif("Narrating chapter ${i + 1} of $total — segment $seg of $segTotal", i, total)
+                                }
+                            }
                         }
                         app.database.chapterDao().insert(
                             Chapter(
@@ -155,7 +165,7 @@ class GenerationService : Service() {
                                 segments = res.segmentsJson, durationMs = res.durationMs
                             )
                         )
-                        GenerationState.update { it.copy(active = true, narrated = i + 1) }
+                        GenerationState.update { it.copy(active = true, narrated = i + 1, narratingSegment = 0, narratingSegmentTotal = 0) }
                     }
                 }
 

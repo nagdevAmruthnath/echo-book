@@ -18,6 +18,8 @@ object GenerationState {
         val totalChapters: Int = 0,
         val written: Int = 0,
         val narrated: Int = 0,
+        val narratingSegment: Int = 0,
+        val narratingSegmentTotal: Int = 0,
         val detail: String = "",
         val error: String? = null,
         val done: Boolean = false

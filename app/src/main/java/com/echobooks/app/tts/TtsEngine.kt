@@ -87,13 +87,20 @@ class TtsEngine(private val context: Context) {
      * Synthesizes [text], splits across segments, and adds [gapMs] of trailing
      * silence to the final segment so there is a natural pause between chapters.
      */
-    suspend fun synthesizeToFiles(text: String, dir: File, prefix: String, gapMs: Long = 800): SynthesisResult {
+    suspend fun synthesizeToFiles(
+        text: String,
+        dir: File,
+        prefix: String,
+        gapMs: Long = 800,
+        onSegmentProgress: ((current: Int, total: Int) -> Unit)? = null
+    ): SynthesisResult {
         if (offlineTts == null) throw TtsException("Speech engine is not ready")
         val segments = splitSegments(text)
         val files = mutableListOf<File>()
         val infos = mutableListOf<SegmentInfo>()
         var totalMs = 0L
         for ((i, seg) in segments.withIndex()) {
+            onSegmentProgress?.invoke(i + 1, segments.size)
             val raw = File(dir, "${prefix}_s$i.wav")
             val ok = synthesizeOne(seg, raw)
             if (!ok) throw TtsException("Speech synthesis failed for segment ${i + 1}")
@@ -147,7 +154,7 @@ class TtsEngine(private val context: Context) {
             .build()
         val model = OfflineTtsModelConfig.builder()
             .setKokoro(kokoro)
-            .setNumThreads(2)
+            .setNumThreads(4)
             .setDebug(false)
             .build()
         return OfflineTts(OfflineTtsConfig.builder().setModel(model).build())

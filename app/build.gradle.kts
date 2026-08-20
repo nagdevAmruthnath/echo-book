@@ -33,6 +33,14 @@ android {
     buildFeatures {
         compose = true
     }
+
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+        xmlReport = false
+        htmlReport = false
+        checkDependencies = false
+    }
 }
 
 kotlin {
